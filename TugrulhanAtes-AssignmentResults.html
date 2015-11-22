@@ -1,0 +1,351 @@
+<html>
+
+<head>
+<style type="text/css">
+.knitr .inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.rimage .left {
+  text-align: left;
+}
+.rimage .right {
+  text-align: right;
+}
+.rimage .center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+<title>Tugrulhan Ates - Practical Machine Learning Write-up Assignment</title>
+</head>
+
+<body>
+
+<p>Human activity recognition research has traditionally focused on discriminating between different activities. However, the 'how (well)' investigation has only received little attention so far, even though it potentially provides useful information for a large variety of applications,such as sports training (http://groupware.les.inf.puc-rio.br/har).
+
+The goal of this project is to predict the manner in which the participants did the exercise. This is the classe variable of the training set, which classifies the correct and incorrect outcomes into A, B, C, D, and E categories. This report describes how the model for the project was built, its cross validation, expected out of sample error calculation, and the choices made. It was used successfully to accurately predict all 20 different test cases on the Coursera website.
+</p>
+
+<p>Model Data:</p>
+Train and test data was obtained from http://groupware.les.inf.puc-rio.br/har
+<div class="chunk" id="unnamed-chunk-1"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">#Activating caret library</span>
+<span class="hl kwd">library</span><span class="hl std">(caret)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## Loading required package: lattice
+## Loading required package: ggplot2
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com">#Importing data</span>
+<span class="hl std">training</span><span class="hl kwb">&lt;-</span><span class="hl kwd">read.csv</span><span class="hl std">(</span><span class="hl str">'pml-training.csv'</span><span class="hl std">,</span> <span class="hl kwc">stringsAsFactors</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">header</span><span class="hl std">=</span><span class="hl num">TRUE</span><span class="hl std">,</span> <span class="hl kwc">na.strings</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">'NA'</span><span class="hl std">,</span> <span class="hl str">'#DIV/0!'</span><span class="hl std">))</span>
+<span class="hl std">testing</span><span class="hl kwb">&lt;-</span><span class="hl kwd">read.csv</span><span class="hl std">(</span><span class="hl str">'pml-testing.csv'</span><span class="hl std">,</span> <span class="hl kwc">stringsAsFactors</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">header</span><span class="hl std">=</span><span class="hl num">TRUE</span><span class="hl std">,</span> <span class="hl kwc">na.strings</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">'NA'</span><span class="hl std">,</span> <span class="hl str">'#DIV/0!'</span><span class="hl std">))</span>
+
+
+<span class="hl com">#Initial data check for 'classe' category distribution</span>
+<span class="hl kwd">table</span><span class="hl std">(training</span><span class="hl opt">$</span><span class="hl std">classe)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## 
+##    A    B    C    D    E 
+## 5580 3797 3422 3216 3607
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">prop.table</span><span class="hl std">(</span><span class="hl kwd">table</span><span class="hl std">(training</span><span class="hl opt">$</span><span class="hl std">classe))</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## 
+##         A         B         C         D         E 
+## 0.2843747 0.1935073 0.1743961 0.1638977 0.1838243
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">prop.table</span><span class="hl std">(</span><span class="hl kwd">table</span><span class="hl std">(training</span><span class="hl opt">$</span><span class="hl std">user_name,training</span><span class="hl opt">$</span><span class="hl std">classe),</span><span class="hl num">1</span><span class="hl std">)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##           
+##                    A         B         C         D         E
+##   adelmo   0.2993320 0.1993834 0.1927030 0.1323227 0.1762590
+##   carlitos 0.2679949 0.2217224 0.1584190 0.1561697 0.1956941
+##   charles  0.2542421 0.2106900 0.1524321 0.1815611 0.2010747
+##   eurico   0.2817590 0.1928339 0.1592834 0.1895765 0.1765472
+##   jeremy   0.3459730 0.1437390 0.1916520 0.1534392 0.1651969
+##   pedro    0.2452107 0.1934866 0.1911877 0.1796935 0.1904215
+</pre></div>
+</div></div>
+
+
+<p>Data Cleansing:</p> 
+In order to avoid skewness and penalize model accuracy, columns that contain NA values have been removed. 
+<div class="chunk" id="unnamed-chunk-2"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">#Excluding the variables with NA value and the ones will not be necessarry for the model building (the first 8 columns)</span>
+<span class="hl std">training_NA_excluded</span><span class="hl kwb">&lt;-</span><span class="hl std">training[,</span><span class="hl kwd">apply</span><span class="hl std">(training,</span><span class="hl num">2</span><span class="hl std">,</span><span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">)</span> <span class="hl opt">!</span><span class="hl kwd">any</span><span class="hl std">(</span><span class="hl kwd">is.na</span><span class="hl std">(x)))]</span>
+<span class="hl std">training_final</span><span class="hl kwb">&lt;-</span><span class="hl std">training_NA_excluded[,</span><span class="hl opt">-</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl num">8</span><span class="hl std">)]</span>
+<span class="hl kwd">names</span><span class="hl std">(training_final)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##  [1] &quot;pitch_belt&quot;           &quot;yaw_belt&quot;             &quot;total_accel_belt&quot;    
+##  [4] &quot;gyros_belt_x&quot;         &quot;gyros_belt_y&quot;         &quot;gyros_belt_z&quot;        
+##  [7] &quot;accel_belt_x&quot;         &quot;accel_belt_y&quot;         &quot;accel_belt_z&quot;        
+## [10] &quot;magnet_belt_x&quot;        &quot;magnet_belt_y&quot;        &quot;magnet_belt_z&quot;       
+## [13] &quot;roll_arm&quot;             &quot;pitch_arm&quot;            &quot;yaw_arm&quot;             
+## [16] &quot;total_accel_arm&quot;      &quot;gyros_arm_x&quot;          &quot;gyros_arm_y&quot;         
+## [19] &quot;gyros_arm_z&quot;          &quot;accel_arm_x&quot;          &quot;accel_arm_y&quot;         
+## [22] &quot;accel_arm_z&quot;          &quot;magnet_arm_x&quot;         &quot;magnet_arm_y&quot;        
+## [25] &quot;magnet_arm_z&quot;         &quot;roll_dumbbell&quot;        &quot;pitch_dumbbell&quot;      
+## [28] &quot;yaw_dumbbell&quot;         &quot;total_accel_dumbbell&quot; &quot;gyros_dumbbell_x&quot;    
+## [31] &quot;gyros_dumbbell_y&quot;     &quot;gyros_dumbbell_z&quot;     &quot;accel_dumbbell_x&quot;    
+## [34] &quot;accel_dumbbell_y&quot;     &quot;accel_dumbbell_z&quot;     &quot;magnet_dumbbell_x&quot;   
+## [37] &quot;magnet_dumbbell_y&quot;    &quot;magnet_dumbbell_z&quot;    &quot;roll_forearm&quot;        
+## [40] &quot;pitch_forearm&quot;        &quot;yaw_forearm&quot;          &quot;total_accel_forearm&quot; 
+## [43] &quot;gyros_forearm_x&quot;      &quot;gyros_forearm_y&quot;      &quot;gyros_forearm_z&quot;     
+## [46] &quot;accel_forearm_x&quot;      &quot;accel_forearm_y&quot;      &quot;accel_forearm_z&quot;     
+## [49] &quot;magnet_forearm_x&quot;     &quot;magnet_forearm_y&quot;     &quot;magnet_forearm_z&quot;    
+## [52] &quot;classe&quot;
+</pre></div>
+</div></div>
+
+<div class="chunk" id="unnamed-chunk-3"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">#Selecting 20 cases from the test data by using the selected variables in training_final and excluding the classe variable (52th column in training_final)</span>
+<span class="hl std">testing_20</span><span class="hl kwb">&lt;-</span><span class="hl std">testing[,</span><span class="hl kwd">names</span><span class="hl std">(training_final[,</span><span class="hl opt">-</span><span class="hl num">52</span><span class="hl std">])]</span>
+</pre></div>
+</div></div>
+
+
+<p>Data Partitioning:</p> 
+75% / 25% partitioning has been used for train and test sets
+<div class="chunk" id="unnamed-chunk-4"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">#Creating Train and Test groups for the model to be used with caret package</span>
+<span class="hl std">inTrain</span><span class="hl kwb">&lt;-</span><span class="hl kwd">createDataPartition</span><span class="hl std">(</span><span class="hl kwc">y</span><span class="hl std">=training_final</span><span class="hl opt">$</span><span class="hl std">classe,</span>
+                             <span class="hl kwc">p</span><span class="hl std">=</span><span class="hl num">0.75</span><span class="hl std">,</span>
+                             <span class="hl kwc">list</span><span class="hl std">=</span><span class="hl num">FALSE</span><span class="hl std">)</span>
+
+
+<span class="hl std">model_train</span><span class="hl kwb">&lt;-</span><span class="hl std">training_final[inTrain,]</span>
+<span class="hl std">model_test</span><span class="hl kwb">&lt;-</span><span class="hl std">training_final[</span><span class="hl opt">-</span><span class="hl std">inTrain,]</span>
+
+<span class="hl kwd">dim</span><span class="hl std">(model_train)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] 14718    52
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">dim</span><span class="hl std">(model_test)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] 4904   52
+</pre></div>
+</div></div>
+
+
+<p>Model Building:</p> 
+Random forest with cross-validation has been used for the model building.
+<div class="chunk" id="unnamed-chunk-5"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">#Model building</span>
+<span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">123123</span><span class="hl std">)</span>
+<span class="hl std">fitControl</span><span class="hl kwb">&lt;-</span><span class="hl kwd">trainControl</span><span class="hl std">(</span><span class="hl kwc">method</span> <span class="hl std">=</span> <span class="hl str">'cv'</span><span class="hl std">,</span> <span class="hl kwc">number</span> <span class="hl std">=</span> <span class="hl num">5</span><span class="hl std">,</span> <span class="hl kwc">allowParallel</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">,</span> <span class="hl kwc">verbose</span><span class="hl std">=</span><span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl std">modelFit</span><span class="hl kwb">&lt;-</span><span class="hl kwd">train</span><span class="hl std">(classe</span><span class="hl opt">~</span><span class="hl std">.,</span>
+                <span class="hl kwc">data</span><span class="hl std">=model_train,</span>
+                <span class="hl kwc">method</span><span class="hl std">=</span><span class="hl str">'rf'</span><span class="hl std">,</span>
+                <span class="hl kwc">trControl</span><span class="hl std">=fitControl,</span>
+                <span class="hl kwc">verbose</span><span class="hl std">=</span><span class="hl num">FALSE</span><span class="hl std">)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## Loading required package: randomForest
+## randomForest 4.6-12
+## Type rfNews() to see new features/changes/bug fixes.
+</pre></div>
+<div class="output"><pre class="knitr r">## + Fold1: mtry= 2 
+## - Fold1: mtry= 2 
+## + Fold1: mtry=26 
+## - Fold1: mtry=26 
+## + Fold1: mtry=51 
+## - Fold1: mtry=51 
+## + Fold2: mtry= 2 
+## - Fold2: mtry= 2 
+## + Fold2: mtry=26 
+## - Fold2: mtry=26 
+## + Fold2: mtry=51 
+## - Fold2: mtry=51 
+## + Fold3: mtry= 2 
+## - Fold3: mtry= 2 
+## + Fold3: mtry=26 
+## - Fold3: mtry=26 
+## + Fold3: mtry=51 
+## - Fold3: mtry=51 
+## + Fold4: mtry= 2 
+## - Fold4: mtry= 2 
+## + Fold4: mtry=26 
+## - Fold4: mtry=26 
+## + Fold4: mtry=51 
+## - Fold4: mtry=51 
+## + Fold5: mtry= 2 
+## - Fold5: mtry= 2 
+## + Fold5: mtry=26 
+## - Fold5: mtry=26 
+## + Fold5: mtry=51 
+## - Fold5: mtry=51 
+## Aggregating results
+## Selecting tuning parameters
+## Fitting mtry = 26 on full training set
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com">#Checking model summary</span>
+<span class="hl std">modelFit</span><span class="hl opt">$</span><span class="hl std">finalModel</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## 
+## Call:
+##  randomForest(x = x, y = y, mtry = param$mtry, verbose = FALSE) 
+##                Type of random forest: classification
+##                      Number of trees: 500
+## No. of variables tried at each split: 26
+## 
+##         OOB estimate of  error rate: 0.68%
+## Confusion matrix:
+##      A    B    C    D    E class.error
+## A 4177    5    2    0    1 0.001911589
+## B   20 2822    6    0    0 0.009129213
+## C    0   17 2540    9    1 0.010518115
+## D    0    1   26 2383    2 0.012023217
+## E    0    0    5    5 2696 0.003695492
+</pre></div>
+</div></div>
+
+
+<p>Predictions & Results:</p> 
+By using 51 predictor variables for five classes (A, B, C, D, E) using cross-validation at a 5-fold an accuracy of 99.5% with a 95% CI [0.992, 0.997] was achieved accompanied by a Kappa value of 0.994 for the test set
+<div class="chunk" id="unnamed-chunk-6"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">#Creating prediction values &amp; confusion matrix</span>
+<span class="hl std">prediction_results</span><span class="hl kwb">&lt;-</span><span class="hl kwd">predict</span><span class="hl std">(modelFit,model_train)</span>
+<span class="hl kwd">confusionMatrix</span><span class="hl std">(prediction_results,model_train</span><span class="hl opt">$</span><span class="hl std">classe)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 4185    0    0    0    0
+##          B    0 2848    0    0    0
+##          C    0    0 2567    0    0
+##          D    0    0    0 2412    0
+##          E    0    0    0    0 2706
+## 
+## Overall Statistics
+##                                      
+##                Accuracy : 1          
+##                  95% CI : (0.9997, 1)
+##     No Information Rate : 0.2843     
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16  
+##                                      
+##                   Kappa : 1          
+##  Mcnemar's Test P-Value : NA         
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            1.0000   1.0000   1.0000   1.0000   1.0000
+## Specificity            1.0000   1.0000   1.0000   1.0000   1.0000
+## Pos Pred Value         1.0000   1.0000   1.0000   1.0000   1.0000
+## Neg Pred Value         1.0000   1.0000   1.0000   1.0000   1.0000
+## Prevalence             0.2843   0.1935   0.1744   0.1639   0.1839
+## Detection Rate         0.2843   0.1935   0.1744   0.1639   0.1839
+## Detection Prevalence   0.2843   0.1935   0.1744   0.1639   0.1839
+## Balanced Accuracy      1.0000   1.0000   1.0000   1.0000   1.0000
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">prediction_test</span><span class="hl kwb">&lt;-</span><span class="hl kwd">predict</span><span class="hl std">(modelFit,</span> <span class="hl kwc">newdata</span><span class="hl std">=model_test)</span>
+<span class="hl kwd">confusionMatrix</span><span class="hl std">(prediction_test, model_test</span><span class="hl opt">$</span><span class="hl std">classe)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1394    6    0    0    0
+##          B    1  941    3    0    0
+##          C    0    0  851    2    0
+##          D    0    1    1  800    3
+##          E    0    1    0    2  898
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9959          
+##                  95% CI : (0.9937, 0.9975)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9948          
+##  Mcnemar's Test P-Value : NA              
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9993   0.9916   0.9953   0.9950   0.9967
+## Specificity            0.9983   0.9990   0.9995   0.9988   0.9993
+## Pos Pred Value         0.9957   0.9958   0.9977   0.9938   0.9967
+## Neg Pred Value         0.9997   0.9980   0.9990   0.9990   0.9993
+## Prevalence             0.2845   0.1935   0.1743   0.1639   0.1837
+## Detection Rate         0.2843   0.1919   0.1735   0.1631   0.1831
+## Detection Prevalence   0.2855   0.1927   0.1739   0.1642   0.1837
+## Balanced Accuracy      0.9988   0.9953   0.9974   0.9969   0.9980
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com">#Prediction for the 20 cases</span>
+<span class="hl std">prediction_20</span><span class="hl kwb">&lt;-</span><span class="hl kwd">predict</span><span class="hl std">(modelFit,</span> <span class="hl kwc">newdata</span><span class="hl std">=testing_20)</span>
+<span class="hl std">prediction_20</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E
+</pre></div>
+</div></div>
+
+
+<p>Saving the results:</p> 
+The following script has been used to save the results for the 20 cases
+<div class="chunk" id="unnamed-chunk-7"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">#Writing results to a single txt file</span>
+<span class="hl kwd">getwd</span><span class="hl std">()</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] &quot;/Users/tugrulhanates/Desktop/FOLDERS/R/Practical Machine Learning Course&quot;
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">pml_write_files</span> <span class="hl kwb">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">){</span>
+  <span class="hl std">n</span> <span class="hl kwb">=</span> <span class="hl kwd">length</span><span class="hl std">(x)</span>
+  <span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n){</span>
+    <span class="hl std">filename</span> <span class="hl kwb">=</span> <span class="hl kwd">paste0</span><span class="hl std">(</span><span class="hl str">&quot;problem_id_&quot;</span><span class="hl std">,i,</span><span class="hl str">&quot;.txt&quot;</span><span class="hl std">)</span>
+    <span class="hl kwd">write.table</span><span class="hl std">(x[i],</span><span class="hl kwc">file</span><span class="hl std">=filename,</span><span class="hl kwc">quote</span><span class="hl std">=</span><span class="hl num">FALSE</span><span class="hl std">,</span><span class="hl kwc">row.names</span><span class="hl std">=</span><span class="hl num">FALSE</span><span class="hl std">,</span><span class="hl kwc">col.names</span><span class="hl std">=</span><span class="hl num">FALSE</span><span class="hl std">)</span>
+  <span class="hl std">}</span>
+<span class="hl std">}</span>
+<span class="hl kwd">pml_write_files</span><span class="hl std">(prediction_20)</span>
+</pre></div>
+</div></div>
+
+
+
+
+
+
+
+</body>
+</html>

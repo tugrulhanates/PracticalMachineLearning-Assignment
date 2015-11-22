@@ -1,0 +1,118 @@
+<html>
+
+<head>
+<title>Tugrulhan Ates - Practical Machine Learning Write-up Assignment</title>
+</head>
+
+<body>
+
+<p>Human activity recognition research has traditionally focused on discriminating between different activities. However, the 'how (well)' investigation has only received little attention so far, even though it potentially provides useful information for a large variety of applications,such as sports training (http://groupware.les.inf.puc-rio.br/har).
+
+The goal of this project is to predict the manner in which the participants did the exercise. This is the classe variable of the training set, which classifies the correct and incorrect outcomes into A, B, C, D, and E categories. This report describes how the model for the project was built, its cross validation, expected out of sample error calculation, and the choices made. It was used successfully to accurately predict all 20 different test cases on the Coursera website.
+</p>
+
+<p>Model Data:</p>
+Train and test data was obtained from http://groupware.les.inf.puc-rio.br/har
+<!--begin.rcode
+#Activating caret library
+library(caret)
+
+#Importing data
+training<-read.csv('pml-training.csv', stringsAsFactors = FALSE, header=TRUE, na.strings = c('NA', '#DIV/0!'))
+testing<-read.csv('pml-testing.csv', stringsAsFactors = FALSE, header=TRUE, na.strings = c('NA', '#DIV/0!'))
+
+
+#Initial data check for 'classe' category distribution
+table(training$classe)
+prop.table(table(training$classe))
+prop.table(table(training$user_name,training$classe),1)
+end.rcode-->
+
+
+<p>Data Cleansing:</p> 
+In order to avoid skewness and penalize model accuracy, columns that contain NA values have been removed. 
+<!--begin.rcode
+#Excluding the variables with NA value and the ones will not be necessarry for the model building (the first 8 columns)
+training_NA_excluded<-training[,apply(training,2,function(x) !any(is.na(x)))]
+training_final<-training_NA_excluded[,-c(1:8)]
+names(training_final)
+end.rcode-->
+
+<!--begin.rcode
+#Selecting 20 cases from the test data by using the selected variables in training_final and excluding the classe variable (52th column in training_final)
+testing_20<-testing[,names(training_final[,-52])]
+end.rcode-->
+
+
+<p>Data Partitioning:</p> 
+75% / 25% partitioning has been used for train and test sets
+<!--begin.rcode
+#Creating Train and Test groups for the model to be used with caret package
+inTrain<-createDataPartition(y=training_final$classe,
+                             p=0.75,
+                             list=FALSE)
+
+
+model_train<-training_final[inTrain,]
+model_test<-training_final[-inTrain,]
+
+dim(model_train)
+dim(model_test)
+end.rcode-->
+
+
+<p>Model Building:</p> 
+Random forest with cross-validation has been used for the model building.
+<!--begin.rcode
+#Model building
+set.seed(123123)
+fitControl<-trainControl(method = 'cv', number = 5, allowParallel = TRUE, verbose=TRUE)
+modelFit<-train(classe~.,
+                data=model_train,
+                method='rf',
+                trControl=fitControl,
+                verbose=FALSE)
+
+
+#Checking model summary
+modelFit$finalModel
+end.rcode-->
+
+
+<p>Predictions & Results:</p> 
+By using 51 predictor variables for five classes (A, B, C, D, E) using cross-validation at a 5-fold an accuracy of 99.5% with a 95% CI [0.992, 0.997] was achieved accompanied by a Kappa value of 0.994 for the test set
+<!--begin.rcode
+#Creating prediction values & confusion matrix
+prediction_results<-predict(modelFit,model_train)
+confusionMatrix(prediction_results,model_train$classe)
+
+
+prediction_test<-predict(modelFit, newdata=model_test)
+confusionMatrix(prediction_test, model_test$classe)
+
+
+#Prediction for the 20 cases
+prediction_20<-predict(modelFit, newdata=testing_20)
+prediction_20
+end.rcode-->
+
+
+<p>Saving the results:</p> 
+The following script has been used to save the results for the 20 cases
+<!--begin.rcode
+#Writing results to a single txt file
+getwd()
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(prediction_20)
+end.rcode-->
+
+
+
+</body>
+</html>
